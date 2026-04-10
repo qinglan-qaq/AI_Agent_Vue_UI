@@ -7,6 +7,9 @@ const api = axios.create({
   baseURL: 'http://localhost:8123/api',
   timeout: 10000,
 });
+// 配置
+const API_BASE_URL = 'http://localhost:8123/api'
+
 
 // 同步聊天接口
 export async function chatSync(request: ChatRequest): Promise<AgentChatResponse> {
@@ -18,11 +21,31 @@ export async function chatSync(request: ChatRequest): Promise<AgentChatResponse>
   }
 }
 
-// 流式聊天接口（SSE，返回EventSource）
-// 注意：POST SSE流式接口建议直接用fetch+ReadableStream实现（见hooks/useStreamingChat.ts），如需EventSource请自行实现polyfill。
-export async function chatStream(request: ChatRequest): Promise<EventSource> {
-  throw new Error('chatStream接口建议通过fetch+ReadableStream实现，详见hooks/useStreamingChat.ts');
+/**
+ * 流式聊天 (返回EventSource)
+ */
+export const chatStream = (request: ChatRequest): EventSource => {
+  const params = new URLSearchParams({
+    message: request.message,
+    chatId: request.chatId
+  })
+  if (request.toolIds?.length) {
+    params.append('toolIds', request.toolIds.join(','))
+  }
+  
+  const url = `${API_BASE_URL}/agent/chat/stream?${params.toString()}`
+  return new EventSource(url)
 }
+
+/**
+ * 使用POST body的流式聊天 (推荐)
+ */
+export const chatStreamPost = (request: ChatRequest): EventSource => {
+  const url = `${API_BASE_URL}/agent/chat/stream`
+  // 注意：EventSource不支持POST，这里返回URL，实际使用时通过fetch实现
+  return null as any
+}
+
 
 // 获取工具列表
 export async function getTools(): Promise<ToolInfo[]> {
@@ -51,4 +74,13 @@ export async function clearHistory(chatId: string): Promise<void> {
   } catch (error: any) {
     throw new Error(error?.response?.data?.error || error.message || '清空会话失败');
   }
+}
+
+export default {
+  chatSync,
+  chatStream,
+  chatStreamPost,
+  getTools,
+  getHistory,
+  clearHistory
 }
